@@ -1,5 +1,5 @@
 # Testing task
-Please see [test_task_backend_dev.pdf](https://github.com/mario1ua/11.skein/blob/master/test_task_backend_dev.pdf)(rus) for task description
+Please see [test_task_backend_dev.pdf (rus)](https://github.com/mario1ua/11.skein/blob/master/test_task_backend_dev.pdf) for task description
 
 ## Running the application
 ### Running with Flask built-in web server

@@ -3,10 +3,7 @@ Please see [test_task_backend_dev.pdf (rus)](https://github.com/mario1ua/11.skei
 
 ## Running the application
 ### Running with Flask built-in web server
-1. Start the app and web server from command line:
-```
-./skein_run.py
-```
+1. Start the app and web server from command line:```./skein_run.py```
 2. Access the application by the address *http://localhost:5000*
 
 ### Running with Apache mod_wsgi

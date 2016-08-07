@@ -19,50 +19,61 @@ def search():
             flash("Fill in the search and email fields")
             return redirect(url_for('index'))
     
-    r = requests.get("http://localhost:9200/_all/pages/_search?q=text:%s"
-                        % form.search.data)
+    es_pages = elastic_get(field='text', value=form.search.data, typ='pages')
+    book_ids = { v['_index']:1 for v in es_pages}.keys()
 
-    es_pages = r.json()['hits']['hits']
-    book_ids = { v['_index']:1 for v in es_pages }.keys()
-
-    query = '{ "query" : { "constant_score" : { "filter" : { "terms" : { "_index" : [%s] } } } } }' % ', '.join( '"{}"'.format(v) for v in book_ids )
-    
-    r = requests.post('http://localhost:9200/_all/description/_search',
-            data = query)
-    
-    es_books = { v['_index']:v for v in r.json()['hits']['hits'] }
-
+    es_desc = { v['_index']:v for v in elastic_exact_match(field="_index",
+                                            value='[%s]' % ', '.join( '"{}"'.format(v) for v in book_ids),
+                                            typ='description') }
     result = []
     for es_page in es_pages:
         print es_page['_source']
         index = es_page['_index']
         result.append({
-            'title': es_books[index]['_source']['name'],
+            'title': es_desc[index]['_source']['name'],
             'chapter': es_page['_source']['chapter'],
             'section': es_page['_source']['section'],
             'subdivisions': es_page['_source']['subdivisions'],
             'page_no': es_page['_source']['page_no']
         })
     
-    body = "<p>Search: "+form.search.data+"</p>Result: <pre><code>"+json.dumps(result,indent=4)+"</code></pre>"
+    keyword = form.search.data
+    data = json.dumps(result,indent=4)
+    sent_msg = send_email(form.email.data, 
+                            body=render_template('result.html', keyword=keyword, data=data),
+                            subject="Your matching list")
+    
+    return render_template("result.html", keyword=keyword, data=data, sent_msg=sent_msg )
+
+def elastic_get(field, value, index='_all', typ='_all'):
+    r = requests.get('http://localhost:9200/%s/%s/_search?q=%s:"%s"' % (index, typ, field, value) )
+    return r.json()['hits']['hits']
+    
+def elastic_exact_match(field, value, index='_all', typ='_all'):   # find out about terms syntax in elasticsearch docs
+    query = '{ "query" : { "constant_score" : { "filter" : { "terms" : {"%s":[%s]}}}}}' % (field, value)
+    r = requests.post('http://localhost:9200/%s/%s/_search' % (index, typ), data = query)
+    return r.json()['hits']['hits']
+    
+def send_email(recepient, body='', subject=''):
+    gmail = 'skein.out@gmail.com'
+
+    msg = "\r\n".join([
+        "From: Testing Task %s" % gmail,
+        "To: %s" % recepient,
+        "Subject: %s" % subject,
+         "Content-Type: text/html",
+        "",
+        body
+    ])
     try:
-        send_email(form.email.data, body=body,subj="Your matching list")
+        s = smtplib.SMTP("smtp.gmail.com", 587)
+        s.set_debuglevel
+        s.ehlo(); s.starttls(); s.ehlo()
+        s.login(gmail, 'sk31n.t3st')
+        s.sendmail(gmail, recepient, msg)
+        s.quit()
+        return "Data sent to " + recepient
     except:
-        print "Unable to send the email"
-    
-    return "Data is being sent to "+form.email.data+body    
+        return "Was unable to email the result"
 
-def send_email(address, body='', subj=''):
-    message = """From: From Person <from@fromdomain.com>
-    To: %s
-    Subject: %s
-
-    %s
-    """ % (address, subj, body)
-
-    s = smtplib.SMTP('localhost')
-    s.sendmail('admin@mysite.com', address, message)
-    s.quit()
-
-    
 
